@@ -88,6 +88,8 @@ def normalize_text(text: str) -> str:
         .lower()
     )
 
+def sanitize_rnc(value: str) -> str:
+    return re.sub(r'\D', '', value.strip())
 
 def parse_hidden_inputs(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
@@ -228,7 +230,7 @@ def consulta_rnc(rnc_value: str) -> dict:
     hidden = parse_hidden_inputs(r.text)
 
     payload = hidden.copy()
-    payload["ctl00$cphMain$txtRNCCedula"] = rnc_value
+    payload["ctl00$cphMain$txtRNCCedula"] = sanitize_rnc(rnc_value)
     payload["ctl00$cphMain$btnBuscarPorRNC"] = "BUSCAR"
 
     r2 = session.post(DGII_RNC_URL, data=payload, headers=headers, timeout=DEFAULT_TIMEOUT)
