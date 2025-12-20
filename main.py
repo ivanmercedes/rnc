@@ -6,9 +6,9 @@ import requests
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, Query, Body, HTTPException
+from fastapi import FastAPI, Query, Body, HTTPException, Depends
 from fastapi.responses import JSONResponse, HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from bs4 import BeautifulSoup
 
 # -------------------------------------------------
@@ -28,6 +28,7 @@ app = FastAPI(
     version="1.1.0",
     description="Consulta RNC/Cédula DGII",
 )
+
 
 # -------------------------------------------------
 # DB helpers
@@ -65,12 +66,18 @@ def init_db():
 
 init_db()
 
+
 # -------------------------------------------------
 # Models
 # -------------------------------------------------
 
 class ConsultaRequest(BaseModel):
     rnc: str
+
+    @field_validator("rnc", mode="before")
+    @classmethod
+    def sanitize(cls, v: str) -> str:
+        return sanitize_rnc(v)
 
 
 # -------------------------------------------------
@@ -88,8 +95,14 @@ def normalize_text(text: str) -> str:
         .lower()
     )
 
-def sanitize_rnc(value: str) -> str:
-    return re.sub(r'\D', '', value.strip())
+
+def sanitize_rnc(rnc: str) -> str:
+    return re.sub(r'\D', '', rnc.strip())
+
+
+def rnc_param(rnc: str = Query(...)) -> str:
+    return sanitize_rnc(rnc)
+
 
 def parse_hidden_inputs(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
@@ -154,10 +167,11 @@ def get_cached_rnc(rnc: str) -> Optional[dict]:
 
     return None
 
+
 def update_metrics(
-    *,
-    cache_hit: bool,
-    error: bool
+        *,
+        cache_hit: bool,
+        error: bool
 ):
     today = datetime.utcnow().date().isoformat()
     now = datetime.utcnow().isoformat()
@@ -198,6 +212,7 @@ def update_metrics(
     db.commit()
     db.close()
 
+
 def save_cache(rnc: str, data: dict):
     db = get_db()
     db.execute(
@@ -230,7 +245,7 @@ def consulta_rnc(rnc_value: str) -> dict:
     hidden = parse_hidden_inputs(r.text)
 
     payload = hidden.copy()
-    payload["ctl00$cphMain$txtRNCCedula"] = sanitize_rnc(rnc_value)
+    payload["ctl00$cphMain$txtRNCCedula"] = rnc_value
     payload["ctl00$cphMain$btnBuscarPorRNC"] = "BUSCAR"
 
     r2 = session.post(DGII_RNC_URL, data=payload, headers=headers, timeout=DEFAULT_TIMEOUT)
@@ -246,7 +261,7 @@ def consulta_rnc(rnc_value: str) -> dict:
 # -------------------------------------------------
 
 @app.get("/api/consulta")
-def consulta_get(rnc: str = Query(...)):
+def consulta_get(rnc: str = Depends(sanitize_rnc)):
     cached = get_cached_rnc(rnc)
     if cached:
         update_metrics(cache_hit=True, error=False)
@@ -268,7 +283,7 @@ def consulta_get(rnc: str = Query(...)):
 
 @app.post("/api/consulta")
 def consulta_post(body: ConsultaRequest):
-    rnc = body.rnc.strip()
+    rnc = body.rnc
 
     cached = get_cached_rnc(rnc)
     if cached:
@@ -287,6 +302,7 @@ def consulta_post(body: ConsultaRequest):
     save_cache(rnc, result)
     update_metrics(cache_hit=False, error=False)
     return result
+
 
 @app.get("/api/stats")
 def stats():
