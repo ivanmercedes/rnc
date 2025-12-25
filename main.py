@@ -252,7 +252,7 @@ def consulta_rnc(rnc_value: str) -> dict:
 
     data = parse_result_table(r2.text)
     data["rnc_consultado"] = rnc_value
-    data["cache"] = False
+    # data["cache"] = False
     return data
 
 
