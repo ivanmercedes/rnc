@@ -79,7 +79,19 @@ class ConsultaRequest(BaseModel):
     def sanitize(cls, v: str) -> str:
         return sanitize_rnc(v)
 
-
+class ConsultaResponse(BaseModel):
+    cedula_rnc: str
+    nombre_razon_social: str
+    nombre_comercial: str
+    categoria: str
+    regimen_de_pagos: str
+    estado: str
+    actividad_economica: str
+    administracion_local: str
+    facturador_electronico: str
+    licencias_de_comercializacion_de_vhm: str
+    rnc_consultado: str
+    cache: bool
 # -------------------------------------------------
 # Utils
 # -------------------------------------------------
@@ -273,7 +285,7 @@ def consulta_rnc(rnc_value: str) -> dict:
 # API
 # -------------------------------------------------
 
-@app.get("/api/consulta")
+@app.get("/api/consulta", response_model=ConsultaResponse)
 def consulta_get(rnc: str = Depends(sanitize_rnc)):
     cached = get_cached_rnc(rnc)
     if cached:
@@ -301,7 +313,7 @@ def consulta_get(rnc: str = Depends(sanitize_rnc)):
     update_metrics(cache_hit=False, error=False)
     return result
 
-@app.post("/api/consulta")
+@app.post("/api/consulta", response_model=ConsultaResponse)
 def consulta_post(body: ConsultaRequest):
     rnc = body.rnc
 
