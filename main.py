@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import FastAPI, Query, Body, HTTPException, Depends
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
+from fastapi.responses import RedirectResponse
 from bs4 import BeautifulSoup
 
 # -------------------------------------------------
@@ -284,6 +285,9 @@ def consulta_rnc(rnc_value: str) -> dict:
 # -------------------------------------------------
 # API
 # -------------------------------------------------
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
 
 @app.get("/api/consulta", response_model=ConsultaResponse)
 def consulta_get(rnc: str = Depends(sanitize_rnc)):
