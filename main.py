@@ -116,16 +116,21 @@ def parse_hidden_inputs(html: str) -> dict:
 def parse_result_table(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
 
+    # Mensaje genérico DGII cuando hay error de consulta
     error_span = soup.find("span", id="cphMain_lblInformacion")
     if error_span:
-        return {
-            "error": True,
-            "mensaje": normalize_text(error_span.get_text(strip=True)),
-        }
+        mensaje = normalize_text(error_span.get_text(strip=True))
 
+        # Caso RNC no inscrito
+        if "el rnc/cedula consultado no se encuentra inscrito como contribuyente." in mensaje:
+            return {"error": True, "tipo": "rnc_no_encontrado", "mensaje": mensaje}
+
+        # Caso error de DGII (bloqueo o saturación)
+        return {"error": True, "tipo": "dgii_error", "mensaje": mensaje}
+
+    # Tabla con datos válidos
     table = soup.find("table", id=re.compile("dvDatosContribuyentes", re.I))
     data = {}
-
     if table:
         for tr in table.find_all("tr"):
             cols = tr.find_all("td")
@@ -139,7 +144,11 @@ def parse_result_table(html: str) -> dict:
                 )
                 data[key] = cols[1].get_text(strip=True)
 
+    if not data:
+        return {"error": True, "tipo": "dgii_error", "mensaje": "Respuesta vacía de DGII"}
+
     return data
+
 
 
 # -------------------------------------------------
@@ -214,6 +223,10 @@ def update_metrics(
 
 
 def save_cache(rnc: str, data: dict):
+    # No guardar cache si el resultado es vacío o contiene error
+    if not data or data.get("error"):
+        return
+
     db = get_db()
     db.execute(
         """
@@ -262,45 +275,60 @@ def consulta_rnc(rnc_value: str) -> dict:
 
 @app.get("/api/consulta")
 def consulta_get(rnc: str = Depends(sanitize_rnc)):
-    # cached = get_cached_rnc(rnc)
-    # if cached:
-    #     update_metrics(cache_hit=True, error=False)
-    #     return cached
+    cached = get_cached_rnc(rnc)
+    if cached:
+        update_metrics(cache_hit=True, error=False)
+        return cached
 
     result = consulta_rnc(rnc)
 
     if result.get("error"):
+        error_type = result.get("tipo")
+        if error_type == "rnc_no_encontrado":
+            update_metrics(cache_hit=False, error=True)
+            return JSONResponse(
+                status_code=404,
+                content={**result, "codigo_http": 404},
+            )
+        # Error temporal de DGII
         update_metrics(cache_hit=False, error=True)
         return JSONResponse(
-            status_code=404,
-            content={**result, "codigo_http": 404},
+            status_code=503,
+            content={**result, "codigo_http": 503},
         )
 
-    # save_cache(rnc, result)
-    # update_metrics(cache_hit=False, error=False)
+    save_cache(rnc, result)
+    update_metrics(cache_hit=False, error=False)
     return result
-
 
 @app.post("/api/consulta")
 def consulta_post(body: ConsultaRequest):
     rnc = body.rnc
 
-    # cached = get_cached_rnc(rnc)
-    # if cached:
-    #     update_metrics(cache_hit=True, error=False)
-    #     return cached
+    cached = get_cached_rnc(rnc)
+    if cached:
+        update_metrics(cache_hit=True, error=False)
+        return cached
 
     result = consulta_rnc(rnc)
 
     if result.get("error"):
-        update_metrics(cache_hit=True, error=False)
+        error_type = result.get("tipo")
+        if error_type == "rnc_no_encontrado":
+            update_metrics(cache_hit=False, error=True)
+            return JSONResponse(
+                status_code=404,
+                content={**result, "codigo_http": 404},
+            )
+        # Error temporal de DGII
+        update_metrics(cache_hit=False, error=True)
         return JSONResponse(
-            status_code=404,
-            content={**result, "codigo_http": 404},
+            status_code=503,
+            content={**result, "codigo_http": 503},
         )
 
-    # save_cache(rnc, result)
-    # update_metrics(cache_hit=False, error=False)
+    save_cache(rnc, result)
+    update_metrics(cache_hit=False, error=False)
     return result
 
 
