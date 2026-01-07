@@ -262,10 +262,10 @@ def consulta_rnc(rnc_value: str) -> dict:
 
 @app.get("/api/consulta")
 def consulta_get(rnc: str = Depends(sanitize_rnc)):
-    cached = get_cached_rnc(rnc)
-    if cached:
-        update_metrics(cache_hit=True, error=False)
-        return cached
+    # cached = get_cached_rnc(rnc)
+    # if cached:
+    #     update_metrics(cache_hit=True, error=False)
+    #     return cached
 
     result = consulta_rnc(rnc)
 
@@ -276,8 +276,8 @@ def consulta_get(rnc: str = Depends(sanitize_rnc)):
             content={**result, "codigo_http": 404},
         )
 
-    save_cache(rnc, result)
-    update_metrics(cache_hit=False, error=False)
+    # save_cache(rnc, result)
+    # update_metrics(cache_hit=False, error=False)
     return result
 
 
@@ -285,10 +285,10 @@ def consulta_get(rnc: str = Depends(sanitize_rnc)):
 def consulta_post(body: ConsultaRequest):
     rnc = body.rnc
 
-    cached = get_cached_rnc(rnc)
-    if cached:
-        update_metrics(cache_hit=True, error=False)
-        return cached
+    # cached = get_cached_rnc(rnc)
+    # if cached:
+    #     update_metrics(cache_hit=True, error=False)
+    #     return cached
 
     result = consulta_rnc(rnc)
 
@@ -299,35 +299,35 @@ def consulta_post(body: ConsultaRequest):
             content={**result, "codigo_http": 404},
         )
 
-    save_cache(rnc, result)
-    update_metrics(cache_hit=False, error=False)
+    # save_cache(rnc, result)
+    # update_metrics(cache_hit=False, error=False)
     return result
 
 
-@app.get("/api/stats")
-def stats():
-    db = get_db()
-    rows = db.execute(
-        """
-        SELECT
-            date,
-            total_requests,
-            cache_hits,
-            cache_misses,
-            errors
-        FROM usage_metrics
-        ORDER BY date DESC
-        """
-    ).fetchall()
-    db.close()
-
-    return [
-        {
-            "date": r[0],
-            "total_requests": r[1],
-            "cache_hits": r[2],
-            "cache_misses": r[3],
-            "errors": r[4],
-        }
-        for r in rows
-    ]
+# @app.get("/api/stats")
+# def stats():
+#     db = get_db()
+#     rows = db.execute(
+#         """
+#         SELECT
+#             date,
+#             total_requests,
+#             cache_hits,
+#             cache_misses,
+#             errors
+#         FROM usage_metrics
+#         ORDER BY date DESC
+#         """
+#     ).fetchall()
+#     db.close()
+#
+#     return [
+#         {
+#             "date": r[0],
+#             "total_requests": r[1],
+#             "cache_hits": r[2],
+#             "cache_misses": r[3],
+#             "errors": r[4],
+#         }
+#         for r in rows
+#     ]
