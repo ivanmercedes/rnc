@@ -10,7 +10,9 @@ from datetime import datetime
 
 # Configuration
 ZIP_URL = "https://dgii.gov.do/app/WebApps/Consultas/RNC/RNC_CONTRIBUYENTES.zip"
-DB_PATH = "rnc_cache.sqlite"
+# Ensure data directory exists
+os.makedirs("data", exist_ok=True)
+DB_PATH = "data/rnc_cache.sqlite"
 CSV_FILENAME = "TMP_RNC.csv" # Expected name relative to extraction, or we search for it
 BATCH_SIZE = 1000
 

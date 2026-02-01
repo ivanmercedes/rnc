@@ -22,7 +22,9 @@ DEFAULT_TIMEOUT = 20
 CACHE_WEEKS = 1
 CACHE_DELTA = timedelta(weeks=CACHE_WEEKS)
 
-DB_PATH = "rnc_cache.sqlite"
+# Ensure data directory exists
+os.makedirs("data", exist_ok=True)
+DB_PATH = "data/rnc_cache.sqlite"
 
 app = FastAPI(
     title="API Consulta DGII RNC",
